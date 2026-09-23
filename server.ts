@@ -3,8 +3,6 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
-import { generateLinguisticFallback } from './src/utils/fallbackTranslator';
-import { generateVoiceFallback } from './src/utils/voiceTranslator';
 
 dotenv.config();
 
@@ -260,19 +258,9 @@ Provide the response in the specified JSON schema strictly.`;
     const parsed = JSON.parse(outputText.trim());
     return res.json(parsed);
   } catch (error: any) {
-    console.warn('Gemini translation API spike or rate-limit; returning compliant linguistic corpus result:', error.message || error);
-    try {
-      const { text, sourceLang = 'Auto', register = 'Auto' } = req.body;
-      if (text && typeof text === 'string') {
-        const fallbackResult = generateLinguisticFallback(text, sourceLang, register);
-        return res.json(fallbackResult);
-      }
-    } catch (fallbackErr) {
-      console.error('Fallback generation error:', fallbackErr);
-    }
-
+    console.warn('Gemini translation API error:', error.message || error);
     return res.status(500).json({
-      error: 'Failed to process Garhwali translation',
+      error: 'Failed to process Garhwali translation via Gemini',
       details: error.message || String(error),
     });
   }
@@ -332,13 +320,14 @@ Return a valid JSON object matching this schema:
         const parsed = JSON.parse(response.text.trim());
         return res.json(parsed);
       }
+      throw new Error('Empty response from model');
     } catch (modelErr: any) {
-      console.warn('Gemini voice translation fallback triggered:', modelErr.message || modelErr);
+      console.warn('Gemini voice translation error:', modelErr.message || modelErr);
+      return res.status(500).json({
+        error: 'Failed to translate voice via Gemini',
+        details: modelErr.message || String(modelErr),
+      });
     }
-
-    // High quality deterministic fallback for voice
-    const fallback = generateVoiceFallback(cleanInput, sourceLang, targetDialect);
-    return res.json(fallback);
   } catch (err: any) {
     console.error('Voice translation error:', err);
     return res.status(500).json({
