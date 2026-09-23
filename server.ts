@@ -257,11 +257,12 @@ Provide the response in the specified JSON schema strictly.`;
 
     const parsed = JSON.parse(outputText.trim());
     return res.json(parsed);
-  } catch (error: any) {
-    console.warn('Gemini translation API error:', error.message || error);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.warn('Gemini translation API error:', errorMsg);
     return res.status(500).json({
       error: 'Failed to process Garhwali translation via Gemini',
-      details: error.message || String(error),
+      details: errorMsg,
     });
   }
 });
@@ -321,18 +322,20 @@ Return a valid JSON object matching this schema:
         return res.json(parsed);
       }
       throw new Error('Empty response from model');
-    } catch (modelErr: any) {
-      console.warn('Gemini voice translation error:', modelErr.message || modelErr);
+    } catch (modelErr) {
+      const errStr = modelErr instanceof Error ? modelErr.message : String(modelErr);
+      console.warn('Gemini voice translation error:', errStr);
       return res.status(500).json({
         error: 'Failed to translate voice via Gemini',
-        details: modelErr.message || String(modelErr),
+        details: errStr,
       });
     }
-  } catch (err: any) {
-    console.error('Voice translation error:', err);
+  } catch (err) {
+    const errStr = err instanceof Error ? err.message : String(err);
+    console.error('Voice translation error:', errStr);
     return res.status(500).json({
       error: 'Failed to translate voice',
-      details: err.message || String(err),
+      details: errStr,
     });
   }
 });
@@ -381,11 +384,12 @@ app.post('/api/garhwali/tts', async (req, res) => {
       sampleRate: 24000,
       format: 'pcm_or_wav',
     });
-  } catch (error: any) {
-    console.error('Garhwali TTS error:', error);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Garhwali TTS error:', errorMsg);
     return res.status(500).json({
       error: 'Failed to generate speech audio',
-      details: error.message || String(error),
+      details: errorMsg,
     });
   }
 });
@@ -431,7 +435,7 @@ async function startServer() {
     console.log(`Garh-Vani server running at http://0.0.0.0:${PORT} [mode: ${serveStatic ? 'production' : 'development'}]`);
   });
 
-  server.on('error', (err: any) => {
+  server.on('error', (err) => {
     console.error('Server listen error:', err);
   });
 }
