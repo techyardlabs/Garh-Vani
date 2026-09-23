@@ -33,10 +33,14 @@ export default function App() {
     setIsLoading(true);
     setErrorMsg(null);
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6500);
+
     try {
       const response = await fetch('/api/garhwali/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           text,
           sourceLang,
@@ -56,10 +60,11 @@ export default function App() {
         throw new Error('Incomplete JSON structure received');
       }
     } catch (err: any) {
-      console.warn('Backend API fallback generator invoked:', err);
+      console.warn('Backend API fallback generator invoked (preventing 504):', err);
       const fallback = generateLinguisticFallback(text, sourceLang, register);
       setResult(fallback);
     } finally {
+      clearTimeout(timer);
       setIsLoading(false);
     }
   };

@@ -91,6 +91,22 @@ export const VoiceTranslatorView: React.FC = () => {
   const continuousRef = useRef(continuousListening);
   continuousRef.current = continuousListening;
 
+  const targetLanguageRef = useRef(targetLanguage);
+  targetLanguageRef.current = targetLanguage;
+
+  const targetDialectRef = useRef(targetDialect);
+  targetDialectRef.current = targetDialect;
+
+  const sourceLangRef = useRef(sourceLang);
+  sourceLangRef.current = sourceLang;
+
+  const autoSpeakRef = useRef(autoSpeak);
+  autoSpeakRef.current = autoSpeak;
+
+  const latestTranscriptRef = useRef('');
+  const lastConvertedTextRef = useRef('');
+  const silenceTimerRef = useRef<any>(null);
+
   // Set recognition language dynamically
   const getRecognitionLang = () => {
     if (sourceLang === 'English') return 'en-IN';
@@ -118,21 +134,49 @@ export const VoiceTranslatorView: React.FC = () => {
       let final = '';
 
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          final += transcript;
-        } else {
-          interim += transcript;
+        const item = event.results[i];
+        if (item && item[0]) {
+          const transcript = item[0].transcript;
+          if (item.isFinal) {
+            final += transcript;
+          } else {
+            interim += transcript;
+          }
         }
       }
 
-      const spoken = final || interim;
+      const spoken = (final || interim || '').trim();
       if (spoken) {
         setLiveTranscript(spoken);
-      }
+        latestTranscriptRef.current = spoken;
 
-      if (final && final.trim().length > 1) {
-        handleTriggerTranslation(final.trim());
+        // If browser marked this sentence final, convert immediately!
+        if (final.trim().length > 1) {
+          handleTriggerTranslation(final.trim());
+          return;
+        }
+
+        // Automatic silence detection: when user pauses for 1000ms after speaking, convert automatically!
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+        silenceTimerRef.current = setTimeout(() => {
+          const currentSpoken = latestTranscriptRef.current.trim();
+          if (
+            currentSpoken &&
+            currentSpoken.length > 1 &&
+            currentSpoken !== lastConvertedTextRef.current
+          ) {
+            handleTriggerTranslation(currentSpoken);
+          }
+        }, 1000);
+      }
+    };
+
+    recognition.onspeechend = () => {
+      const spoken = latestTranscriptRef.current.trim();
+      if (spoken && spoken.length > 1 && spoken !== lastConvertedTextRef.current) {
+        handleTriggerTranslation(spoken);
       }
     };
 
@@ -156,12 +200,20 @@ export const VoiceTranslatorView: React.FC = () => {
       } else {
         setIsListening(false);
         isListeningRef.current = false;
+        // When speech recognition ends, convert any pending transcript
+        const spoken = latestTranscriptRef.current.trim();
+        if (spoken && spoken.length > 1 && spoken !== lastConvertedTextRef.current) {
+          handleTriggerTranslation(spoken);
+        }
       }
     };
 
     recognitionRef.current = recognition;
 
     return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -175,6 +227,8 @@ export const VoiceTranslatorView: React.FC = () => {
   const startListening = () => {
     stopCurrentAudio();
     setIsPlayingAudio(false);
+    lastConvertedTextRef.current = '';
+    latestTranscriptRef.current = '';
 
     if (!recognitionRef.current) {
       alert('माइक्रोफोन पहचान इस ब्राउज़र में उपलब्ध नहीं है। कृपया नीचे दिए गए वाक्य चुनें या पाठ लिखकर अनुवाद करें।');
@@ -206,6 +260,9 @@ export const VoiceTranslatorView: React.FC = () => {
 
   const stopListening = () => {
     isListeningRef.current = false;
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -214,8 +271,9 @@ export const VoiceTranslatorView: React.FC = () => {
       }
     }
     setIsListening(false);
-    if (liveTranscript.trim().length > 1) {
-      handleTriggerTranslation(liveTranscript.trim());
+    const spoken = latestTranscriptRef.current.trim();
+    if (spoken && spoken.length > 1 && spoken !== lastConvertedTextRef.current) {
+      handleTriggerTranslation(spoken);
     }
   };
 
@@ -233,19 +291,36 @@ export const VoiceTranslatorView: React.FC = () => {
     overrideLang?: TargetLanguageType,
     overrideDialect?: string
   ) => {
-    if (!text || text.trim().length === 0) return;
-    const activeTargetLang = overrideLang || targetLanguage;
-    const activeDialect = overrideDialect || targetDialect;
+    const clean = text ? text.trim() : '';
+    if (!clean || clean.length < 2) return;
+
+    // Prevent identical re-conversion loop unless language explicitly changed
+    if (clean === lastConvertedTextRef.current && !overrideLang && !overrideDialect) {
+      return;
+    }
+    lastConvertedTextRef.current = clean;
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+
+    const activeTargetLang = overrideLang || targetLanguageRef.current;
+    const activeDialect = overrideDialect || targetDialectRef.current;
+    const activeSourceLang = sourceLangRef.current;
 
     setIsTranslating(true);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5500);
 
     try {
       const response = await fetch('/api/garhwali/voice-translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
-          text: text.trim(),
-          sourceLang,
+          text: clean,
+          sourceLang: activeSourceLang,
           targetLanguage: activeTargetLang,
           targetDialect: activeDialect,
         }),
@@ -255,7 +330,7 @@ export const VoiceTranslatorView: React.FC = () => {
       if (response.ok) {
         resData = await response.json();
       } else {
-        resData = generateVoiceFallback(text, sourceLang, activeTargetLang, activeDialect);
+        resData = generateVoiceFallback(clean, activeSourceLang, activeTargetLang, activeDialect);
       }
 
       setCurrentResult(resData);
@@ -267,8 +342,8 @@ export const VoiceTranslatorView: React.FC = () => {
       const historyEntry: VoiceHistoryItem = {
         id: Date.now().toString(),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        sourceText: text,
-        sourceLang: resData.detectedSourceLang || sourceLang,
+        sourceText: clean,
+        sourceLang: resData.detectedSourceLang || activeSourceLang,
         targetLanguage: activeTargetLang,
         targetLanguageName: getLanguageLabel(activeTargetLang),
         translatedText: textToSpeak,
@@ -279,18 +354,19 @@ export const VoiceTranslatorView: React.FC = () => {
       setVoiceHistory((prev) => [historyEntry, ...prev.slice(0, 19)]);
 
       // Auto speak if enabled
-      if (autoSpeak) {
+      if (autoSpeakRef.current) {
         playLanguageSpeech(textToSpeak, activeTargetLang, resData.dialectName, resData.audioBase64);
       }
     } catch (err) {
-      console.warn('Voice translation fallback:', err);
-      const fallback = generateVoiceFallback(text, sourceLang, activeTargetLang, activeDialect);
+      console.warn('Voice translation fallback triggered (preventing 504):', err);
+      const fallback = generateVoiceFallback(clean, activeSourceLang, activeTargetLang, activeDialect);
       setCurrentResult(fallback);
       const textToSpeak = getActiveTextForLanguage(fallback, activeTargetLang);
-      if (autoSpeak) {
+      if (autoSpeakRef.current) {
         playLanguageSpeech(textToSpeak, activeTargetLang, fallback.dialectName);
       }
     } finally {
+      clearTimeout(timer);
       setIsTranslating(false);
     }
   };
@@ -333,10 +409,14 @@ export const VoiceTranslatorView: React.FC = () => {
         return;
       }
 
+      const ttsController = new AbortController();
+      const ttsTimer = setTimeout(() => ttsController.abort(), 4500);
+
       // Call server TTS endpoint with specific language instructions
       const ttsRes = await fetch('/api/garhwali/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: ttsController.signal,
         body: JSON.stringify({
           text,
           targetLanguage: lang,
@@ -348,7 +428,7 @@ export const VoiceTranslatorView: React.FC = () => {
               ? 'authentic Jaunsari hill cadence'
               : 'clear articulation of retroflex ळ and natural Central Pahari pitch cadence',
         }),
-      });
+      }).finally(() => clearTimeout(ttsTimer));
 
       if (ttsRes.ok) {
         const audioJson = await ttsRes.json();
@@ -358,11 +438,11 @@ export const VoiceTranslatorView: React.FC = () => {
         }
       }
 
-      // Devanagari fallback synthesis
+      // Devanagari fallback synthesis if TTS timed out or audio was not generated
       await speakDevanagariFallback(text, lang);
       onAudioEnd();
     } catch (err) {
-      console.warn('Speech playback fallback:', err);
+      console.warn('Speech playback fallback (preventing 504):', err);
       await speakDevanagariFallback(text, lang);
       onAudioEnd();
     }
@@ -698,13 +778,61 @@ export const VoiceTranslatorView: React.FC = () => {
 
           {/* Live Interim Transcript Bubble */}
           {(liveTranscript || isListening) && (
-            <div className="mt-4 max-w-xl w-full mx-auto p-4 rounded-lg bg-[#070b12] border border-[#1e293b] text-center animate-in fade-in">
-              <span className="text-[11px] text-[#94a3b8] uppercase tracking-wider block mb-1">
-                पहचाने गए शब्द (Spoken Transcript):
-              </span>
-              <p className="text-base sm:text-lg font-devanagari text-[#f8fafc] italic">
-                "{liveTranscript || 'बोलिए...'}"
-              </p>
+            <div className="mt-4 max-w-xl w-full mx-auto p-4 rounded-xl bg-[#070b12] border border-[#ea580c]/30 shadow-lg text-center animate-in fade-in space-y-3">
+              <div className="flex items-center justify-between text-[11px] text-[#94a3b8] px-1">
+                <span className="uppercase tracking-wider font-semibold flex items-center gap-1.5 text-[#ea580c]">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                  पहचाने गए शब्द (Spoken Speech Recognized):
+                </span>
+                {isTranslating ? (
+                  <span className="text-[#fb923c] font-semibold flex items-center gap-1.5 animate-pulse">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#f97316]" />
+                    अनुवाद व उच्चारण तैयार हो रहा है...
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/50">
+                    बोलना रुकते ही 1s में स्वतः अनुवाद
+                  </span>
+                )}
+              </div>
+
+              <div className="p-3.5 rounded-lg bg-[#0b121e] border border-[#1e293b] text-left">
+                <p className="text-base sm:text-lg font-devanagari text-[#f8fafc] font-medium leading-relaxed">
+                  {liveTranscript ? `"${liveTranscript}"` : 'सुन रहा हूँ... बोलिए...'}
+                </p>
+              </div>
+
+              {/* Instant Translate & Speak Action */}
+              {liveTranscript.trim().length > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const textToTranslate = latestTranscriptRef.current || liveTranscript;
+                      handleTriggerTranslation(textToTranslate);
+                    }}
+                    disabled={isTranslating}
+                    className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:scale-[1.02] transition-all cursor-pointer ring-2 ring-orange-500/30 disabled:opacity-50"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-200" />
+                    <span>
+                      अभी {getLanguageLabel(targetLanguage)} में अनुवाद करें व बोलें
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLiveTranscript('');
+                      latestTranscriptRef.current = '';
+                      lastConvertedTextRef.current = '';
+                    }}
+                    className="text-[11px] text-[#94a3b8] hover:text-white px-2 py-1 rounded hover:bg-[#1e293b] transition-colors"
+                  >
+                    साफ़ करें
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
