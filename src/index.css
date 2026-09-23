@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: #0b0f17;
+    color: #f1f5f9;
+  }
+}
+
+.font-devanagari {
+  font-family: 'Tiro Devanagari Hindi', 'Yantramanav', 'Noto Serif Devanagari', serif;
+}
+
+.font-heading-dev {
+  font-family: 'Rozha One', 'Martel', 'Tiro Devanagari Hindi', serif;
+}
+
+.font-cinzel {
+  font-family: 'Cinzel', serif;
+}
+
+.font-martel {
+  font-family: 'Martel', serif;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ea580c;
+}
+
+/* Professional subtle editorial texture */
+.bg-editorial-grid {
+  background-color: #0b0f17;
+  background-image: radial-gradient(rgba(249, 115, 22, 0.05) 1px, transparent 0);
+  background-size: 28px 28px;
+}
+

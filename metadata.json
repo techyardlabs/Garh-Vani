@@ -1,0 +1,6 @@
+{
+  "name": "Garh-Vani Literary Garhwali Bureau & Dialect Translator",
+  "description": "Authoritative Central Pahari linguist, lexicographer, and regional news publishing suite for translating Hindi and English into publication-standard Garhwali across 6 distinct dialects (Srinagariya, Tehriyali, Salani, Badhani, Nagpuriya, Jaunpuri).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
