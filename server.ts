@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
 
@@ -8,7 +9,6 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const isProd = process.env.NODE_ENV === 'production';
 const PORT = Number(process.env.PORT) || 3000;
 
 const app = express();
@@ -390,8 +390,8 @@ app.post('/api/garhwali/tts', async (req, res) => {
   }
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+// Health check endpoints for deployment container and uptime checks
+app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
     service: 'Garh-Vani Literary Garhwali Bureau & Dialect Engine',
@@ -399,23 +399,40 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/health', (_req, res) => {
+  res.status(200).send('OK');
+});
+
 async function startServer() {
-  if (!isProd) {
+  const distPath = path.resolve(__dirname, 'dist');
+  const distIndexPath = path.resolve(distPath, 'index.html');
+  const hasDist = fs.existsSync(distIndexPath);
+  const isDevScript = process.env.npm_lifecycle_event === 'dev';
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.npm_lifecycle_event === 'start' || (!isDevScript && hasDist);
+  const serveStatic = hasDist && isProduction;
+
+  if (serveStatic) {
+    console.log(`Serving static production build from ${distPath}`);
+    app.use(express.static(distPath));
+    app.get('*', (_req, res) => {
+      res.sendFile(distIndexPath);
+    });
+  } else {
+    console.log('Mounting Vite middleware in development mode');
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
-    app.get('*', (req, res) => {
-      res.sendFile(path.resolve(__dirname, 'dist/index.html'));
-    });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Garh-Vani server running at http://0.0.0.0:${PORT}`);
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Garh-Vani server running at http://0.0.0.0:${PORT} [mode: ${serveStatic ? 'production' : 'development'}]`);
+  });
+
+  server.on('error', (err: any) => {
+    console.error('Server listen error:', err);
   });
 }
 
