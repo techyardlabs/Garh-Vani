@@ -267,10 +267,10 @@ Provide the response in the specified JSON schema strictly.`;
   }
 });
 
-// API Endpoint for Fast Real-Time Voice Translation to Garhwali
+// API Endpoint for Fast Real-Time Voice Translation to Garhwali, Kumaoni, and Jaunsari
 app.post('/api/garhwali/voice-translate', async (req, res) => {
   try {
-    const { text, sourceLang = 'Auto', targetDialect = 'srinagariya' } = req.body;
+    const { text, sourceLang = 'Auto', targetLanguage = 'garhwali', targetDialect = 'srinagariya' } = req.body;
 
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return res.status(400).json({ error: 'Spoken text is required' });
@@ -279,18 +279,36 @@ app.post('/api/garhwali/voice-translate', async (req, res) => {
     const cleanInput = text.trim();
 
     try {
-      const voicePrompt = `You are an expert Central Pahari (Garhwali) conversational linguistic engine.
-Translate the following spoken sentence into authentic conversational spoken Garhwali for dialect: ${targetDialect}.
-Enforce strict retroflex ळ (e.g., बळद, गळि, बयाळ, नौळा, सीतळ) where applicable.
-Input spoken text (${sourceLang}): "${cleanInput}"
+      const voicePrompt = `You are an expert Himalayan Central and Western Pahari conversational linguist specializing in:
+1. गढ़वाली (Garhwali) and its regional dialects (Srinagariya, Tehriyali, Salani, Badhani/Chamoli, Nagpuriya, Jaunpuri/Rawalti).
+2. कुमाऊँनी (Kumaoni) of Almora, Nainital, Pithoragarh, Bageshwar, Champawat.
+3. जौनसारी (Jaunsari) of Chakrata, Kalsi, Tyuni (Jaunsar-Bawar).
 
-Return a valid JSON object matching this schema:
+The user is speaking in conversational ${sourceLang === 'Auto' ? 'Hindi, English, or casual Hinglish' : sourceLang}:
+Input text: "${cleanInput}"
+
+Target requested language: ${targetLanguage.toUpperCase()} (selected sub-dialect if Garhwali: ${targetDialect}).
+
+Your task:
+- Accurately understand the meaning of the spoken Hindi/English sentence.
+- Translate it conversationally into the requested target language:
+  * For GARHWALI: Use authentic spoken Garhwali for "${targetDialect}", enforcing strict retroflex ळ (e.g. बळद, गळि, बयाळ, नौळा, सीतळ) where phonologically appropriate.
+  * For KUMAONI: Use authentic Kumaoni lexicon and verbal inflections (e.g., पैलाग/नमस्कार, कसा छा, भल, काँ, लै, रौ, छू/छन).
+  * For JAUNSARI: Use authentic Jaunsari (Western Pahari) lexicon and verbal endings (e.g., प्रणाम/जय महासू, तुमु कनक सा, सो, आदि).
+- Also provide parallel translations in Garhwali, Kumaoni, and Jaunsari so the user can switch between languages instantly.
+
+Return a valid JSON object strictly matching this schema:
 {
   "sourceText": string,
   "detectedSourceLang": string,
+  "targetLanguage": string,
+  "targetLanguageName": string,
   "targetDialect": string,
   "dialectName": string,
+  "translatedText": string,
   "garhwaliText": string,
+  "kumaoniText": string,
+  "jaunsariText": string,
   "transliteration": string,
   "dialectVariants": {
     "srinagariya": string,
@@ -308,17 +326,41 @@ Return a valid JSON object matching this schema:
   "conversationalNote": string
 }`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: voicePrompt,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.3,
-        },
-      });
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: voicePrompt,
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.3,
+          },
+        });
+      } catch (primaryErr) {
+        console.warn('Gemini 3.8 flash busy, falling back to 3.1-flash-lite:', primaryErr);
+        response = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents: voicePrompt,
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.3,
+          },
+        });
+      }
 
       if (response.text) {
         const parsed = JSON.parse(response.text.trim());
+        // Ensure translatedText is populated according to targetLanguage
+        if (!parsed.translatedText) {
+          if (targetLanguage === 'kumaoni') {
+            parsed.translatedText = parsed.kumaoniText || parsed.dialectVariants?.kumaoni || parsed.garhwaliText;
+          } else if (targetLanguage === 'jaunsari') {
+            parsed.translatedText = parsed.jaunsariText || parsed.dialectVariants?.jaunsari || parsed.garhwaliText;
+          } else {
+            parsed.translatedText = parsed.garhwaliText || parsed.dialectVariants?.srinagariya || cleanInput;
+          }
+        }
+        parsed.targetLanguage = targetLanguage;
         return res.json(parsed);
       }
       throw new Error('Empty response from model');
@@ -340,13 +382,22 @@ Return a valid JSON object matching this schema:
   }
 });
 
-// API Endpoint for Garhwali Pronunciation & TTS Audio
+// API Endpoint for Garhwali, Kumaoni & Jaunsari Pronunciation & TTS Audio
 app.post('/api/garhwali/tts', async (req, res) => {
   try {
-    const { text, dialectName = 'Srinagariya', style = 'clear, expressive Pahari voice' } = req.body;
+    const { text, targetLanguage = 'garhwali', dialectName = 'Srinagariya', style = '' } = req.body;
 
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return res.status(400).json({ error: 'Text is required for TTS' });
+    }
+
+    let speechPromptStyle = '';
+    if (targetLanguage === 'kumaoni') {
+      speechPromptStyle = `Native Kumaoni speaker from Almora/Nainital, expressive and warm Central Pahari melodic cadence, clear enunciation ${style}`.trim();
+    } else if (targetLanguage === 'jaunsari') {
+      speechPromptStyle = `Native Jaunsari Western Pahari speaker from Chakrata/Jaunsar-Bawar, authentic hill cadence, clear articulation ${style}`.trim();
+    } else {
+      speechPromptStyle = `Authentic Garhwali speaker (${dialectName}), Central Pahari cadence with clear retroflex ळ articulation, natural and warm ${style}`.trim();
     }
 
     const ttsResponse = await ai.models.generateContent({
@@ -358,7 +409,7 @@ app.post('/api/garhwali/tts', async (req, res) => {
             {
               text: text.trim(),
               speechMetadata: {
-                style: `Garhwali regional dialect speaker (${dialectName}), ${style}, clear articulation of retroflex ळ and natural Central Pahari pitch cadence`,
+                style: speechPromptStyle,
               },
             },
           ],
@@ -386,7 +437,7 @@ app.post('/api/garhwali/tts', async (req, res) => {
     });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error('Garhwali TTS error:', errorMsg);
+    console.error('Garhwali/Kumaoni/Jaunsari TTS error:', errorMsg);
     return res.status(500).json({
       error: 'Failed to generate speech audio',
       details: errorMsg,

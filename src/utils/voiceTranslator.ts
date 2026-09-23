@@ -1,11 +1,18 @@
 import { DIALECTS } from '../data/garhwaliData';
 
+export type TargetLanguageType = 'garhwali' | 'kumaoni' | 'jaunsari';
+
 export interface VoiceTranslationResult {
   sourceText: string;
   detectedSourceLang: string;
+  targetLanguage: TargetLanguageType;
+  targetLanguageName: string;
   targetDialect: string;
   dialectName: string;
+  translatedText: string;
   garhwaliText: string;
+  kumaoniText: string;
+  jaunsariText: string;
   transliteration: string;
   audioBase64?: string;
   sampleRate?: number;
@@ -27,6 +34,7 @@ export interface VoiceTranslationResult {
 export function generateVoiceFallback(
   spokenText: string,
   sourceLang = 'Auto',
+  targetLanguage: TargetLanguageType = 'garhwali',
   targetDialect = 'srinagariya'
 ): VoiceTranslationResult {
   const text = spokenText.trim();
@@ -65,14 +73,19 @@ export function generateVoiceFallback(
     jaunpuri = 'प्रणाम! तुम कनक सो? सब ठीक-ठाक सो?';
     kumaoni = 'पैलाग / नमस्कार! तम कसा छा? घर-परिवार मा सब राजी-खुसी छू ना?';
     jaunsari = 'प्रणाम / जय महासू! तुमु कनक सा? सब कुशल-मंगल सो?';
-    translit = 'Namaskar! Aap kanak chhan? Sab kushal-mangal ta chha?';
+    translit =
+      targetLanguage === 'kumaoni'
+        ? 'Pailag / Namaskar! Tam kasa chha? Sab rajee-khusee chhoo na?'
+        : targetLanguage === 'jaunsari'
+        ? 'Pranaam / Jai Mahasu! Tumu kanak sa? Sab kushal-mangal so?'
+        : 'Namaskar! Aap kanak chhan? Sab kushal-mangal ta chha?';
     vocab = [
       { term: 'कनक / कसा (Kanak / Kasa)', meaning: 'कैसे / How' },
       { term: 'छन / छा / सा (Chhan / Chha / Sa)', meaning: 'हैं / Are (Honorific auxiliary verb)' },
       { term: 'पैलाग (Pailag)', meaning: 'प्रणाम / Respectful Kumaoni greeting (touching feet)' },
-      { term: 'कुशल-मंगल (Kushal-mangal)', meaning: 'खैरियत / Well-being' },
+      { term: 'तुमु (Tumu)', meaning: 'आप / You (Jaunsari honorific pronoun)' },
     ];
-    note = 'Traditional Central Pahari respectful greeting with dialectal auxiliary verbs (छन in Srinagar, छा in Tehri/Kumaon, सा in Jaunsar).';
+    note = 'Central & Western Pahari greeting: Srinagariya uses छन, Kumaoni uses कसा छा/छू, and Jaunsari uses तुमु कनक सा।';
   }
   // 2. Wayfinding / Directions / Pilgrimage (Badrinath, Kedarnath, Road)
   else if (
@@ -93,15 +106,20 @@ export function generateVoiceFallback(
     badhani = 'मथै बाटो बतावा, उच्च हिमालयी तीर्थ जाणा कु सुपथ कख छ?';
     nagpuriya = 'मथै बाटो ब्वला, केदारघाटी जाणा कु बाटो कथै छ?';
     jaunpuri = 'मोख बाटो बोलो, तीर्थ जाणे रो सीधो रस्तो कख सो?';
-    kumaoni = 'म्यकणि बाटो बताओ, तीर्थ जाणा को सीधो रस्तो काँ छ?';
+    kumaoni = 'म्यकणि बाटो बताओ, तीर्थ जाणा को सीधो रस्तो काँ छू?';
     jaunsari = 'मोख बाटो बोलो, मंदिर जाणे रो सीधो बाटो कख सो?';
-    translit = 'Mathai bato batawa, Badrinath-Kedarnath jana ku seedho rasto katha chha?';
+    translit =
+      targetLanguage === 'kumaoni'
+        ? 'Myakani bato batao, teerth jaana ko seedho rasto kaan chhoo?'
+        : targetLanguage === 'jaunsari'
+        ? 'Mokh bato bolo, mandir jaane ro seedho bato kakh so?'
+        : 'Mathai bato batawa, Badrinath-Kedarnath jana ku seedho rasto katha chha?';
     vocab = [
       { term: 'बाटो / रस्तो (Bato / Rasto)', meaning: 'रास्ता या मार्ग / Trail or road' },
-      { term: 'मथै / मखि / म्यकणि (Mathai / Makhi / Myakani)', meaning: 'मुझे / To me (Dative pronoun)' },
-      { term: 'कथ / कख / काँ (Katha / Kakha / Kaan)', meaning: 'कहाँ / Where' },
+      { term: 'मथै / म्यकणि / मोख (Mathai / Myakani / Mokh)', meaning: 'मुझे / To me' },
+      { term: 'कथ / काँ / कख (Katha / Kaan / Kakh)', meaning: 'कहाँ / Where' },
     ];
-    note = 'Direct conversational mountain wayfinding; note the distinction between Srinagariya "मथै", Tehriyali "मखि", Kumaoni "म्यकणि", and Jaunsari "मोख".';
+    note = 'Mountain wayfinding: Srinagariya "मथै ... कथ", Kumaoni "म्यकणि ... काँ", Jaunsari "मोख ... कख"';
   }
   // 3. Weather / Mountains / Cold / Snow / Rain
   else if (
@@ -118,66 +136,79 @@ export function generateVoiceFallback(
     srinagariya = 'डांडा-कांडा मा आज खूब ठण्डी छ अर हिउँ पड़णू छ। बयाळ भी जोर से चल्लि छ।';
     tehriyali = 'डांड्युं पर आज भयंकर जाड़ो छ अर हिउँ पड़ण लग्युं छ। शीतळ बयाळ बग्गणी छ।';
     salani = 'पहाड़ों मा आज बड्डी ठण्ड छ अर बर्खा का साथ हिउँ गिरणु छ।';
-    badhani = 'उच्च डांडा मा भारी हिमपात ह्वेगे अर भयंकर शीतोष्ण बयाळ छन।';
-    nagpuriya = 'मंदाकिनी घाटी मा आज भारी ठंड छ अर डांडा पर सफेद हिउँ जम गै! ';
-    jaunpuri = 'डांडे आज भारी जाड़ो सो अर हिउँ पड़ंतो सो। बयाळ जोरों मा छौ।';
-    kumaoni = 'डाणा-काणा मा आज भयंकर ठंड छू अर हिउँ पड़नो छू। सीतल बयाळ चलि रै।';
-    jaunsari = 'डांडे आज भारी जाड़ो सो अर हिउँ पड़ंतो सो। सीतळ बयाळ जोरों मा चालदी सी।';
-    translit = 'Danda-kanda ma aaj khoob thandi chha ar hiun padnoo chha. Bayal bhee jor se chal-li chha.';
+    badhani = 'उच्च डांड्यों मा आज हिमाच्छादन छ अर सीतळ बयाळ चलणी छ।';
+    nagpuriya = 'मंदाकिनी घाटी मा आज जाड़ो बढ़िग्युं छ अर बर्फ पड़णी छ।';
+    jaunpuri = 'डांडे मा आज खूब सीत सो अर हिउँ पड़दो सो।';
+    kumaoni = 'डाना-काना मा आज खूब जाड़ छू अर हिउँ पड़ण रौ। बयाळ लै चलणी छू।';
+    jaunsari = 'डांडे मां आज घणो जाड़ो सो अर बर्फ गिरदी सी।';
+    translit =
+      targetLanguage === 'kumaoni'
+        ? 'Daana-kaana ma aaj khoob jaad chhoo ar hiun padan rau. Bayaal lai chalni chhoo.'
+        : targetLanguage === 'jaunsari'
+        ? 'Daande maan aaj ghano jaado so ar barf girdy see.'
+        : 'Danda-kanda ma aaj khoob thandi chha ar hiun padanoo chha. Bayaal bhee jor se chal-li chha.';
     vocab = [
-      { term: 'डांडा-कांडा / डाणा-काणा (Danda-kanda / Dana-kana)', meaning: 'ऊंचे पर्वत व चोटियां / High mountain ridges' },
-      { term: 'हिउँ (Hiun)', meaning: 'बर्फ / Snow' },
-      { term: 'बयाळ (Bayal)', meaning: 'पहाड़ी शीतल हवा / Mountain breeze' },
-      { term: 'जाड़ो / ठंड (Jado / Thand)', meaning: 'ठंड / Bitter cold' },
+      { term: 'डांडा / डाना (Danda / Daana)', meaning: 'पहाड़ / Mountain ridges' },
+      { term: 'हिउँ (Hiun)', meaning: 'बर्फ या हिमपात / Snow' },
+      { term: 'बयाळ (Bayaal)', meaning: 'पहाड़ी बयार / Mountain breeze' },
+      { term: 'जाड़ / जाड़ो (Jaad / Jaado)', meaning: 'ठंड / Severe cold' },
     ];
-    note = 'Pure Central Pahari climatic vocabulary with authentic retroflex flap in "बयाळ" (breeze) and "हिउँ" (snow).';
+    note = 'Mountain climate idioms with authentic regional lexicon: हिउँ (snow) and बयाळ (wind).';
   }
-  // 4. Water / Springs / Village life
+  // 4. Water / Spring / Naula / Village Life
   else if (
     lower.includes('water') ||
+    lower.includes('spring') ||
     lower.includes('village') ||
-    lower.includes('stay') ||
-    lower.includes('food') ||
     text.includes('पानी') ||
-    text.includes('गाँव') ||
-    text.includes('नौला') ||
+    text.includes('जल') ||
     text.includes('धारा') ||
-    text.includes('खाना') ||
-    text.includes('रहने')
+    text.includes('गाँव') ||
+    text.includes('नौला')
   ) {
-    srinagariya = 'हमार गौं कु पाणी बहुतै मीठो छ, धारा अर नौळा बटी निर्मळ जल औंद।';
-    tehriyali = 'हमार गौं कु पाणि बहुत मीठो छ, धारा बटी शीतळ जल मिलद।';
-    salani = 'गौं मा धारो कु पाणि सबसें सीतळ अर मीठो हुंद।';
-    badhani = 'हमार पाहाड़ी गौं मा प्राकृतिक धारा-नौळा कु अमृत पाणि छ।';
-    nagpuriya = 'घाटी का गौं मा मीठो पाणि छ, यां सबी लोग प्रेम से रौन।';
-    jaunpuri = 'हमार गांवे रो पाणि भारी मीठो सो, धारा बटी निर्मल पाणि आवंतो।';
-    kumaoni = 'हमार गौं को पाणी बहुत मीठो छू, नौला अर धारा बटी सीतल जल मिलँछ।';
-    jaunsari = 'हमार गांवे रो पाणी भारी मीठो सो, नौळे बटी सीतळ पाणी आवंतो सो।';
-    translit = 'Hamar goun ku paani bahutai meetho chha, dhara ar naula batee nirmal jal aund.';
+    srinagariya = 'गाँव कु मीठो धारो अर नौळा कु निर्मळ सीतळ पाणी कख मिललू?';
+    tehriyali = 'हमार गाँव मा मंगरो अर धारो कु बियाळ पाणी कख देखण मिललू?';
+    salani = 'गाँव कु धारो कु पाणी भौत मीठो अर सीतळ छ।';
+    badhani = 'पहाड़ी धारा कु अमृत तुल्य पाणी कख बटी आंद?';
+    nagpuriya = 'गाँव का पंदेरा मा मीठो पाणी बग्गदो छ।';
+    jaunpuri = 'गाँव रा पंदेरा रो निर्मळ पाणी कख मिलदो सो?';
+    kumaoni = 'गाँवा नौला अर धारो को मीठ पाणी काँ मिलल? नौलो को पाणी भौत पवित्र छू।';
+    jaunsari = 'गाँवे रा पंदेरा रो मीठो पाणी कख मिलदा सो?';
+    translit =
+      targetLanguage === 'kumaoni'
+        ? 'Gaanwa naula ar dhaaro ko meeth paani kaan milal? Naulo ko paani bhaut pavitra chhoo.'
+        : targetLanguage === 'jaunsari'
+        ? 'Gaanwe ra pandera ro meetho paani kakh milda so?'
+        : 'Gaanw ku meetho dhaaro ar naula ku nirmal seetal paani kakh milaloo?';
     vocab = [
-      { term: 'गौं (Goun)', meaning: 'गाँव / Mountain hamlet' },
-      { term: 'धारा (Dhara)', meaning: 'प्राकृतिक जल स्रोत / Natural mountain spring' },
-      { term: 'नौळा / नौला (Naula)', meaning: 'पारंपरिक जल-कुंड / Traditional subterranean water sanctuary' },
+      { term: 'नौळा / नौला (Naula)', meaning: 'प्राकृतिक पारंपरिक जलकुंड / Traditional aquifer' },
+      { term: 'धारो / मंगरो (Dhaaro / Mangro)', meaning: 'प्राकृतिक जलधारा / Water stream' },
+      { term: 'पंदेरा (Pandera)', meaning: 'गाँव का पानी भरने का स्थान / Village water source' },
     ];
-    note = 'Ecological vocabulary deeply rooted in Himalayan hydrological heritage; strictly uses retroflex "नौळा" and "सीतळ".';
+    note = 'Historic Himalayan water architecture: Kumaoni traditional नौला (aquifer) and Garhwali धारो/मंगरो।';
   }
-  // 5. General Conversational Fallback / Translation
+  // Default / Catch-all Conversational Pahari
   else {
-    srinagariya = `गढ़वळि मा ब्वलां त: "${text}" कु मतलब छ कि हमार पहाड़ मा सबी बात प्रेम अर आदर से बोली जांद।`;
-    tehriyali = `टिहरियाळि बोली मा: "${text}" कु आशय छ कि डांडा-कांडा मा मिलिजुलि कै रौणा छ।`;
-    salani = `सलाणी बोली मा: "${text}" कन हम सहज पहाड़ी भाषा मा ब्वल्दा छां।`;
-    badhani = `बधाणी अंचल मा: "${text}" कु विशुद्ध रूप हमार पुरानी संस्कृति मा मिलद।`;
-    nagpuriya = `नागपुरिया बोली मा: "${text}" कु भावार्थ प्रेमपूर्वक प्रकट करयो जांद।`;
-    jaunpuri = `जौनपुरी-रवाल्टी मा: "${text}" रो सहज अर्थ हमार लोकबोली मा झलकद।`;
-    kumaoni = `कुमाऊँनी बोली मा: "${text}" को अर्थ छू कि हम सबी प्रेम अर मान दगड़ि बात करौं।`;
-    jaunsari = `जौनसारी बोली मा: "${text}" रो आशय सो कि आमु सबी मिलि-जुलि बेर प्रेम से रौंदा सा।`;
-    translit = `Garhwali ma bwolan ta: "${text}" ku matlab chha ki hamar pahad ma sabee baat prem ar aadar se bolee jaand.`;
+    srinagariya = `गढ़वाळी मा ब्वलां त: "${text}" कु भावार्थ हमार पहाड़ी संस्कृति मा भौत आदरपूर्वक समझयो जांद।`;
+    tehriyali = `टिहरियाळि मा: "${text}" कु भावार्थ प्रेम अर आदर से व्यक्त करे जांद।`;
+    salani = `सलाणी मा: "${text}" कु बात हमार लोक मा भौत सीधे मन से ब्वली जांद।`;
+    badhani = `बधाणी मा: "${text}" कु आशय हिमालयी संस्कृति का अनुरूप छ।`;
+    nagpuriya = `नागपुरिया मा: "${text}" कु भावार्थ प्रेमपूर्वक प्रकट करयो जांद।`;
+    jaunpuri = `जौनपुरी मा: "${text}" रो सहज अर्थ हमार लोकबोली मा झलकद।`;
+    kumaoni = `कुमाऊँनी मा: "${text}" को अर्थ छू कि हम सबी प्रेम अर मान दगड़ि बात करौं।`;
+    jaunsari = `जौनसारी मा: "${text}" रो आशय सो कि आमु सबी मिलि-जुलि बेर प्रेम से रौंदा सा।`;
+    translit =
+      targetLanguage === 'kumaoni'
+        ? `Kumaoni ma: "${text}" ko arth chhoo ki ham sabee prem ar maan dagadi baat karaun.`
+        : targetLanguage === 'jaunsari'
+        ? `Jaunsari ma: "${text}" ro aashay so ki aamu sabee mili-juli ber prem se raunda sa.`
+        : `Garhwali ma: "${text}" ku bhawarth hamar pahadi sanskriti ma bhaut aadar-poorvak samajhyo jaand.`;
     vocab = [
       { term: 'ब्वलां / ब्वलो (Bwolan / Bwolo)', meaning: 'बोलें / To speak' },
-      { term: 'हमार / आमु (Hamar / Aamu)', meaning: 'हमारा / Our (हम / We)' },
-      { term: 'बोली जांद / करौं (Bolee jaand / Karaun)', meaning: 'बोली जाती है / करते हैं' },
+      { term: 'दगड़ि (Dagadi)', meaning: 'साथ / With' },
+      { term: 'रौंदा सा (Raunda sa)', meaning: 'रहते हैं / We live (Jaunsari)' },
     ];
-    note = 'Authentic spoken syntax preserving Central and Western Pahari vowel elision and phonological harmony.';
+    note = 'Authentic conversational Central & Western Pahari spoken syntax.';
   }
 
   const dialectMap: Record<string, string> = {
@@ -198,18 +229,36 @@ export function generateVoiceFallback(
     badhani_chamoli: 'बधाणी / चमोली (पिंडर अंचल)',
     nagpuriya: 'नागपुरिया (मंदाकिनी घाटी)',
     jaunpuri_ravalti: 'जौनपुरी / रवाल्टी (पश्चिमी सीमांत)',
-    kumaoni: 'कुमाऊँनी (Kumaoni - अल्मोड़ा / नैनीताल / पिथौरागढ़)',
-    jaunsari: 'जौनसारी (Jaunsari - चक्राता / कालसी / जौनसार-बावर)',
+    kumaoni: 'कुमाऊँनी (Kumaoni)',
+    jaunsari: 'जौनसारी (Jaunsari)',
   };
 
-  const selectedGarhwali = dialectMap[targetDialect] || srinagariya;
+  // Determine active translatedText based on targetLanguage
+  let translated = srinagariya;
+  let langName = 'गढ़वाली (Garhwali)';
+
+  if (targetLanguage === 'kumaoni') {
+    translated = kumaoni;
+    langName = 'कुमाऊँनी (Kumaoni)';
+  } else if (targetLanguage === 'jaunsari') {
+    translated = jaunsari;
+    langName = 'जौनसारी (Jaunsari)';
+  } else {
+    translated = dialectMap[targetDialect] || srinagariya;
+    langName = `गढ़वाली - ${dialectNames[targetDialect] || 'श्रीनगरिया'}`;
+  }
 
   return {
     sourceText: text,
     detectedSourceLang: detectedLang,
+    targetLanguage,
+    targetLanguageName: langName,
     targetDialect,
     dialectName: dialectNames[targetDialect] || dialectNames.srinagariya,
-    garhwaliText: selectedGarhwali,
+    translatedText: translated,
+    garhwaliText: dialectMap[targetDialect] || srinagariya,
+    kumaoniText: kumaoni,
+    jaunsariText: jaunsari,
     transliteration: translit,
     dialectVariants: {
       srinagariya,
