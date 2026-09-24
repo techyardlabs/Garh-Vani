@@ -9,7 +9,8 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PORT = Number(process.env.PORT) || 3000;
+// Port must always be 3000 to match AI Studio runtime & Nginx upstream proxy (Nginx runs on 8080)
+const PORT = 3000;
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
