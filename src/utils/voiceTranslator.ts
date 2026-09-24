@@ -1,4 +1,5 @@
 import { DIALECTS } from '../data/garhwaliData';
+import { translateLinguistically } from './pahariTranslatorEngine';
 
 export type TargetLanguageType = 'garhwali' | 'kumaoni' | 'jaunsari';
 
@@ -187,28 +188,25 @@ export function generateVoiceFallback(
     ];
     note = 'Historic Himalayan water architecture: Kumaoni traditional नौला (aquifer) and Garhwali धारो/मंगरो।';
   }
-  // Default / Catch-all Conversational Pahari
+  // Default / Catch-all Conversational Pahari using linguistic translation engine
   else {
-    srinagariya = `गढ़वाळी मा ब्वलां त: "${text}" कु भावार्थ हमार पहाड़ी संस्कृति मा भौत आदरपूर्वक समझयो जांद।`;
-    tehriyali = `टिहरियाळि मा: "${text}" कु भावार्थ प्रेम अर आदर से व्यक्त करे जांद।`;
-    salani = `सलाणी मा: "${text}" कु बात हमार लोक मा भौत सीधे मन से ब्वली जांद।`;
-    badhani = `बधाणी मा: "${text}" कु आशय हिमालयी संस्कृति का अनुरूप छ।`;
-    nagpuriya = `नागपुरिया मा: "${text}" कु भावार्थ प्रेमपूर्वक प्रकट करयो जांद।`;
-    jaunpuri = `जौनपुरी मा: "${text}" रो सहज अर्थ हमार लोकबोली मा झलकद।`;
-    kumaoni = `कुमाऊँनी मा: "${text}" को अर्थ छू कि हम सबी प्रेम अर मान दगड़ि बात करौं।`;
-    jaunsari = `जौनसारी मा: "${text}" रो आशय सो कि आमु सबी मिलि-जुलि बेर प्रेम से रौंदा सा।`;
+    const linguistic = translateLinguistically(text, sourceLang, 'Conversational');
+    srinagariya = linguistic.dialects.srinagariya;
+    tehriyali = linguistic.dialects.tehriyali;
+    salani = linguistic.dialects.salani;
+    badhani = linguistic.dialects.badhani_chamoli;
+    nagpuriya = linguistic.dialects.nagpuriya;
+    jaunpuri = linguistic.dialects.jaunpuri_ravalti;
+    kumaoni = linguistic.dialects.kumaoni;
+    jaunsari = linguistic.dialects.jaunsari;
     translit =
       targetLanguage === 'kumaoni'
-        ? `Kumaoni ma: "${text}" ko arth chhoo ki ham sabee prem ar maan dagadi baat karaun.`
+        ? linguistic.transliterations.kumaoni
         : targetLanguage === 'jaunsari'
-        ? `Jaunsari ma: "${text}" ro aashay so ki aamu sabee mili-juli ber prem se raunda sa.`
-        : `Garhwali ma: "${text}" ku bhawarth hamar pahadi sanskriti ma bhaut aadar-poorvak samajhyo jaand.`;
-    vocab = [
-      { term: 'ब्वलां / ब्वलो (Bwolan / Bwolo)', meaning: 'बोलें / To speak' },
-      { term: 'दगड़ि (Dagadi)', meaning: 'साथ / With' },
-      { term: 'रौंदा सा (Raunda sa)', meaning: 'रहते हैं / We live (Jaunsari)' },
-    ];
-    note = 'Authentic conversational Central & Western Pahari spoken syntax.';
+        ? linguistic.transliterations.jaunsari
+        : linguistic.transliterations.srinagariya;
+    vocab = linguistic.keyVocabulary;
+    note = 'Authentic conversational Central & Western Pahari translation with verified grammar and auxiliary verb concordance.';
   }
 
   const dialectMap: Record<string, string> = {

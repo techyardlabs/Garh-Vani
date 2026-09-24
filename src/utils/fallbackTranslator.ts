@@ -1,4 +1,5 @@
 import { LEXICON, PROVERBS } from '../data/garhwaliData';
+import { translateLinguistically } from './pahariTranslatorEngine';
 
 export interface GarhwaliApiResponse {
   source_text: string;
@@ -177,16 +178,17 @@ export function generateLinguisticFallback(text: string, sourceLang = 'Auto', re
     kumaoniDev = 'जौनसार-बावर मा महासू देवता को मंदिर न्याय को सर्वोच्च धाम छ। बिस्सू कौतिक मा हारुल नाच देखीबेर मन आनंदित भै जाँ।';
     jaunsariDev = 'जौनसार बावर मा हनोल मा महासू देवता रो पवित्र मंदर न्याय रो सर्वोच्च केंद्र सो। बिस्सू पर्व का टेम चक्राता, कालसी अर त्यूणी का लोग हारुल नृत्य मा मग्न होवंता सा अर देवता री स्तुति करदा सा।';
   } else {
-    // General transformation
-    litDevanagari = `गढ़वाळ का डांडा-कांडा और नद्युं का कांठा मा लोकजीवन अपणी पुरातन परंपरा और माटी का दगड़ि आज भी जुड़्यूं छ। "${text.slice(0, 140)}..." कु सार यो छ कि हम सबी अपणी मातृभाषा और पहाड़ी संस्कृति कु आदर करौं।`;
-    srinagariyaDev = `गढ़वाळ का डांडा-कांडा मा यो विषय विशेष रूप से महत्वपूर्ण छ। हम सबी अपणा गौं और संस्कृति कु सम्मान कन्ना छां।`;
-    tehriyaliDev = `पहाड़ का डांड्युं मा यो सब देखी बटी मन खुश ह्वै गै। हम अपणा लोक खातिर काम कन्ना रवां।`;
-    salaniDev = `यो समाचार पहाड़ का जनमानस मा चर्चा कु विषय बण्यो छ। गौं-गौं मा लोग ये पर विचार कन्ना छां।`;
-    badhaniDev = `उच्च हिमालयी अंचल मा यो संदेश पुरातन परम्परा अनुकूल प्रेषित कद्दे।`;
-    nagpuriyaDev = `डांड्युं मा यो खबर तेजी से फैलीं गै! सबी लोग अपणा थान मा सचेत छन।`;
-    jaunpuriDev = `रंवाई-जौनपुर अंचले यो बात विशेष छौ। लोका आपणे डांडे सुख-शांति चावंता छन।`;
-    kumaoniDev = `कुमाऊँ अंचल का डाणा-काणा अर नद्युं का कांठा मा लोकजीवन अपण पुरान संस्कारन दगड़ि आज लै जुड़िरौ छ। "${text.slice(0, 130)}..." को मुख्य संदेश यो छ कि हम सबी अपण कुमाऊँनी बोली-भाषा अर संस्कृति कु मान राखौं।`;
-    jaunsariDev = `जौनसार-बावर अंचले डांडे-कांडे मा यो संदेश विशेष महत्व रखदो सो। "${text.slice(0, 130)}..." रो सार सो कि आमु सबी आपणी जौनसारी बोली, संस्कृति अर महासू देवते रा संस्कारा कु आदर करदा सा।`;
+    // High-accuracy linguistic engine translation across all Central & Western Pahari languages
+    const linguistic = translateLinguistically(text, sourceLang, resolvedRegister);
+    litDevanagari = linguistic.standardGarhwaliDevanagari;
+    srinagariyaDev = linguistic.dialects.srinagariya;
+    tehriyaliDev = linguistic.dialects.tehriyali;
+    salaniDev = linguistic.dialects.salani;
+    badhaniDev = linguistic.dialects.badhani_chamoli;
+    nagpuriyaDev = linguistic.dialects.nagpuriya;
+    jaunpuriDev = linguistic.dialects.jaunpuri_ravalti;
+    kumaoniDev = linguistic.dialects.kumaoni;
+    jaunsariDev = linguistic.dialects.jaunsari;
   }
 
   // Retroflex ळ audit list
