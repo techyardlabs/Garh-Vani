@@ -4,11 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=18.0.0"
   },
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --outfile=server.js",
+    "postinstall": "node scripts/patch-node18-compat.js",
+    "prebuild": "node scripts/patch-node18-compat.js",
+    "build": "node scripts/patch-node18-compat.js && vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --outfile=server.js",
     "start": "node server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
