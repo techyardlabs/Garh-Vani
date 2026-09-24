@@ -10,8 +10,16 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Port must always be 3000 to match AI Studio runtime & Nginx upstream proxy (Nginx runs on 8080)
-const PORT = 3000;
+// Dynamic port support: uses hosting environment PORT if assigned (Hostinger, Render, Heroku), defaulting to 3000 for AI Studio dev runtime
+const PORT = process.env.PORT || 3000;
+
+// Prevent server termination from uncaught rejections/exceptions
+process.on('uncaughtException', (err) => {
+  console.error('[Process Error] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Process Error] Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -746,9 +754,14 @@ async function startServer() {
     app.use(vite.middlewares);
   }
 
-  const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Garh-Vani server running at http://0.0.0.0:${PORT} [mode: ${serveStatic ? 'production' : 'development'}]`);
-  });
+  const isSocket = typeof PORT === 'string' && (PORT.startsWith('/') || PORT.startsWith('\\\\.\\pipe'));
+  const server = isSocket
+    ? app.listen(PORT, () => {
+        console.log(`Garh-Vani server listening on socket ${PORT} [mode: ${serveStatic ? 'production' : 'development'}]`);
+      })
+    : app.listen(Number(PORT) || 3000, '0.0.0.0', () => {
+        console.log(`Garh-Vani server running at http://0.0.0.0:${PORT} [mode: ${serveStatic ? 'production' : 'development'}]`);
+      });
 
   server.on('error', (err) => {
     console.error('Server listen error:', err);
